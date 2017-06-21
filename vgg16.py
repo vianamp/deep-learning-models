@@ -42,13 +42,13 @@ WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases
 # Load data
 #
 
-Data, Codes, Classes, (n_samples,n_classes) = LoadDataset('Dataset.pkl')
+X, Y, Classes, (n_samples,n_classes) = LoadDataset('Dataset.pkl')
 
 print('#Classes: '+str(n_classes)+', #Samples: '+str(n_samples))
 
-XTrain, YTrain, XTest, YTest = SplitData(Data, Codes, n_samples, n_classes, split_fac=0.10)
+# XTrain, YTrain, XTest, YTest = SplitData(Data, Codes, n_samples, n_classes, split_fac=0.10)
 
-print('#Samples for training/test: '+str(XTrain.shape[0])+'/'+str(XTest.shape[0]))
+# print('#Samples for training/test: '+str(XTrain.shape[0])+'/'+str(XTest.shape[0]))
 
 #
 # Load Model
@@ -116,7 +116,7 @@ if __name__ == '__main__':
 	#
 
 	CallBacks = [ModelCheckpoint('VGG16.h5', monitor='val_loss', save_best_only=True),
-				 EarlyStopping(monitor='val_loss',mode='auto'),
+				 #EarlyStopping(monitor='val_loss',mode='auto'),
 				 TensorBoard(log_dir=boardfolder, write_graph=False)]
 
 	#
@@ -139,8 +139,16 @@ if __name__ == '__main__':
 	# Training
 	#
 
-	model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
+	for fold in range(2):
 
-	model.fit(XTrain, YTrain, epochs=16, batch_size=32, shuffle=True, validation_data=(XTest, YTest), callbacks=CallBacks)
+		XTrain, YTrain, XTest, YTest = SplitData(X, Y, n_samples, n_classes, split_fac=0.10)
+
+		model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
+
+		model.fit(XTrain, YTrain, epochs=2, batch_size=32, shuffle=True, verbose=0, callbacks=CallBacks)
+
+		Scores = model.evaluate(XTest, YTest, verbose=0)
+
+		print("%s: %.2f%%" % (model.metrics_names[1], Scores[1]*100))
 
 	K.clear_session()

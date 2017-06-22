@@ -46,6 +46,9 @@ for opt, arg in opts:
 
 X, Y, Classes, (n_samples,n_classes) = LoadDataset('Dataset.pkl')
 
+X = X[:20]
+Y = Y[:20]
+
 print('#Classes: '+str(n_classes)+', #Samples: '+str(n_samples))
 
 #
@@ -137,7 +140,7 @@ if __name__ == '__main__':
 	# Training
 	#
 
-	Values = np.empty([], dtype=np.float)
+	print('Training in '+str(crossval)+' folds for '+str(nepochs)+' epochs')
 
 	for fold in range(crossval):
 
@@ -147,12 +150,4 @@ if __name__ == '__main__':
 
 		model.fit(XTrain, YTrain, epochs=nepochs, batch_size=32, shuffle=True, verbose=1, validation_data=(XTest,YTest), callbacks=CallBacks)
 
-		Scores = model.evaluate(XTest, YTest, verbose=0)
-
-		Values = np.append(Values,Scores[1]*100)
-
-	Metrics = {'Name': model.metrics_names[1],'Values': Values}
-
 	K.clear_session()
-
-	print(Metrics)

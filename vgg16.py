@@ -46,9 +46,6 @@ for opt, arg in opts:
 
 X, Y, Classes, (n_samples,n_classes) = LoadDataset('Dataset.pkl')
 
-X = X[:20]
-Y = Y[:20]
-
 print('#Classes: '+str(n_classes)+', #Samples: '+str(n_samples))
 
 #

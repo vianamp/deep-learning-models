@@ -33,10 +33,26 @@ from keras.engine.topology import get_source_inputs
 
 from Aux import LoadDataset, SplitData
 
+#
+# Global variables
+#
+
 K.set_image_dim_ordering('tf')
 
-WEIGHTS_PATH = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.1/vgg16_weights_tf_dim_ordering_tf_kernels.h5'
 WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.1/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5'
+
+
+#
+# Get command line arguments
+#
+
+opts, _ = getopt.getopt(sys.argv[1:],'c:e:',['crossval=','epochs='])
+
+for opt, arg in opts:
+	if opt in ('-e','--epochs'):
+		nepochs = np.int(arg)
+	if opt in ('-c','--crossval'):
+		crossval = np.int(arg)
 
 #
 # Load data
@@ -45,10 +61,6 @@ WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases
 X, Y, Classes, (n_samples,n_classes) = LoadDataset('Dataset.pkl')
 
 print('#Classes: '+str(n_classes)+', #Samples: '+str(n_samples))
-
-# XTrain, YTrain, XTest, YTest = SplitData(Data, Codes, n_samples, n_classes, split_fac=0.10)
-
-# print('#Samples for training/test: '+str(XTrain.shape[0])+'/'+str(XTest.shape[0]))
 
 #
 # Load Model
@@ -139,13 +151,13 @@ if __name__ == '__main__':
 	# Training
 	#
 
-	for fold in range(2):
+	for fold in range(crossval):
 
 		XTrain, YTrain, XTest, YTest = SplitData(X, Y, n_samples, n_classes, split_fac=0.10)
 
 		model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
 
-		model.fit(XTrain, YTrain, epochs=2, batch_size=32, shuffle=True, verbose=0, callbacks=CallBacks)
+		model.fit(XTrain, YTrain, epochs=nepochs, batch_size=32, shuffle=True, verbose=0, callbacks=CallBacks)
 
 		Scores = model.evaluate(XTest, YTest, verbose=0)
 

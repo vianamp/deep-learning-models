@@ -1,18 +1,11 @@
-# -*- coding: utf-8 -*-
-'''VGG16 model for Keras.
-
-# Reference:
-
-- [Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556)
-
-'''
-from __future__ import print_function
-
 import os
+import sys
 import pickle
+import getopt
 import warnings
 import datetime
 import numpy as np
+from keras import backend as K
 from keras.models import Model
 from keras.layers import Flatten
 from keras.layers import Dense
@@ -22,14 +15,7 @@ from keras.layers import MaxPooling2D
 from keras.layers import GlobalMaxPooling2D
 from keras.layers import GlobalAveragePooling2D
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
-from keras.preprocessing import image
-from keras.utils import layer_utils
 from keras.utils.data_utils import get_file
-from keras import backend as K
-from keras.applications.imagenet_utils import decode_predictions
-from keras.applications.imagenet_utils import preprocess_input
-from keras.applications.imagenet_utils import _obtain_input_shape
-from keras.engine.topology import get_source_inputs
 
 from Aux import LoadDataset, SplitData
 
@@ -151,16 +137,22 @@ if __name__ == '__main__':
 	# Training
 	#
 
+	Values = np.empty([], dtype=np.float)
+
 	for fold in range(crossval):
 
 		XTrain, YTrain, XTest, YTest = SplitData(X, Y, n_samples, n_classes, split_fac=0.10)
 
 		model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
 
-		model.fit(XTrain, YTrain, epochs=nepochs, batch_size=32, shuffle=True, verbose=0, callbacks=CallBacks)
+		model.fit(XTrain, YTrain, epochs=nepochs, batch_size=32, shuffle=True, verbose=1, validation_data=(XTest,YTest), callbacks=CallBacks)
 
 		Scores = model.evaluate(XTest, YTest, verbose=0)
 
-		print("%s: %.2f%%" % (model.metrics_names[1], Scores[1]*100))
+		Values = np.append(Values,Scores[1]*100)
+
+	Metrics = {'Name': model.metrics_names[1],'Values': Values}
 
 	K.clear_session()
+
+	print(Metrics)

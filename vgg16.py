@@ -41,6 +41,13 @@ for opt, arg in opts:
 		crossval = np.int(arg)
 
 #
+# Export useful information
+#
+
+with open('VGG16.json', 'w') as fp:
+	json.dump({'Classes': list(Classes), 'NSamples': n_samples, 'InputSize': 224}, fp)
+
+#
 # Load data
 #
 

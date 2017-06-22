@@ -14,7 +14,7 @@ from keras.layers import Conv2D
 from keras.layers import MaxPooling2D
 from keras.layers import GlobalMaxPooling2D
 from keras.layers import GlobalAveragePooling2D
-from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
+from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, History
 from keras.utils.data_utils import get_file
 
 from Aux import LoadDataset, SplitData
@@ -52,7 +52,7 @@ print('#Classes: '+str(n_classes)+', #Samples: '+str(n_samples))
 # Load Model
 #
 
-def VGG16(include_top=True, weights='imagenet', input_shape=None, pooling=None, classes=1000):
+def VGG16(include_top=True, weights='imagenet', n_classes = 5):
 
 	img_input = Input(shape=(None,None,3))
 
@@ -84,10 +84,20 @@ def VGG16(include_top=True, weights='imagenet', input_shape=None, pooling=None, 
 	x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv3')(x)
 	x = MaxPooling2D((2, 2), strides=(2, 2), name='block5_pool')(x)
 
-	model = Model(img_input, x, name='vgg16')
+	base_model = Model(img_input, x, name='vgg16')
 
 	weights_path = get_file('vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5', WEIGHTS_PATH_NO_TOP, cache_subdir='models')
-	model.load_weights(weights_path)
+	base_model.load_weights(weights_path)
+
+	x = base_model.output
+	x = GlobalAveragePooling2D()(x)
+	x = Dense(1024, activation='relu')(x)
+	predictions = Dense(n_classes, activation='softmax')(x)
+
+	model = Model(inputs=base_model.input, outputs=predictions, name='vgg16-adapted')
+
+	for layer in base_model.layers:
+		layer.trainable = False
 
 	return model
 
@@ -118,33 +128,31 @@ if __name__ == '__main__':
 				 TensorBoard(log_dir=boardfolder, write_graph=False)]
 
 	#
-	# VGG16 Model adjustments for new dataset
-	#
-
-	base_model = VGG16(include_top=False, weights='imagenet')
-
-	x = base_model.output
-	x = GlobalAveragePooling2D()(x)
-	x = Dense(1024, activation='relu')(x)
-	predictions = Dense(n_classes, activation='softmax')(x)
-
-	model = Model(inputs=base_model.input, outputs=predictions)
-
-	for layer in base_model.layers:
-		layer.trainable = False
-
-	#
-	# Training
+	# Training adapted VGG16 model
 	#
 
 	print('Training in '+str(crossval)+' folds for '+str(nepochs)+' epochs')
 
+	Metrics = []
+
 	for fold in range(crossval):
+
+		model = VGG16(include_top=False, weights='imagenet', n_classes = n_classes)
 
 		XTrain, YTrain, XTest, YTest = SplitData(X, Y, n_samples, n_classes, split_fac=0.10)
 
 		model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
 
-		model.fit(XTrain, YTrain, epochs=nepochs, batch_size=32, shuffle=True, verbose=1, validation_data=(XTest,YTest), callbacks=CallBacks)
+		history = model.fit(XTrain, YTrain, epochs=nepochs, batch_size=32, shuffle=True, verbose=1, validation_data=(XTest,YTest), callbacks=CallBacks)
+
+		Metrics = np.append(Metrics, history.history)
 
 	K.clear_session()
+
+	#
+	# Save history
+	#
+
+	with open(boardfolder+'.pkl', 'wb') as fp:
+		pickle.dump(Metrics, fp)
+

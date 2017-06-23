@@ -7,6 +7,7 @@ import warnings
 import datetime
 import numpy as np
 from keras import backend as K
+from keras import optimizers
 from keras.models import Model
 from keras.layers import Flatten
 from keras.layers import Dense
@@ -16,6 +17,7 @@ from keras.layers import MaxPooling2D
 from keras.layers import GlobalMaxPooling2D
 from keras.layers import GlobalAveragePooling2D
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, History
+from keras.preprocessing.image import ImageDataGenerator
 from keras.utils.data_utils import get_file
 
 from Aux import LoadDataset, SplitData
@@ -54,7 +56,7 @@ print('#Classes: '+str(n_classes)+', #Samples: '+str(n_samples))
 #
 
 with open('VGG16.json', 'w') as fp:
-	json.dump({'Classes': list(Classes), 'NSamples': n_samples, 'InputSize': 224}, fp)
+	json.dump({'Classes': list(Classes), 'NSamples': n_samples, 'InputSize': X.shape[1]}, fp)
 
 #
 # Load Model
@@ -136,8 +138,21 @@ if __name__ == '__main__':
 				 TensorBoard(log_dir=boardfolder, write_graph=False)]
 
 	#
+	# Data augmentation
+	#
+
+	DataGen = ImageDataGenerator(
+				featurewise_center = True,
+				featurewise_std_normalization = True,
+				width_shift_range = 0.2,
+				height_shift_range = 0.2,
+				horizontal_flip = True)
+
+	#
 	# Training adapted VGG16 model
 	#
+
+	sgd = optimizers.SGD(lr=0.1, decay=1e-6, momentum=0.5, nesterov=True)
 
 	print('Training in '+str(crossval)+' folds for '+str(nepochs)+' epochs')
 
@@ -149,9 +164,13 @@ if __name__ == '__main__':
 
 		XTrain, YTrain, XTest, YTest = SplitData(X, Y, n_samples, n_classes, split_fac=0.10)
 
-		model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
+		model.compile(optimizer=sgd, loss='categorical_crossentropy', metrics=['accuracy'])
 
-		history = model.fit(XTrain, YTrain, epochs=nepochs, batch_size=32, shuffle=True, verbose=1, validation_data=(XTest,YTest), callbacks=CallBacks)
+		# history = model.fit(XTrain, YTrain, epochs=nepochs, batch_size=32, shuffle=True, verbose=1, validation_data=(XTest,YTest), callbacks=CallBacks)
+
+		DataGen.fit(XTrain)
+
+		model.fit_generator(DataGen.flow(XTrain, YTrain, batch_size=32), steps_per_epoch=len(XTrain) / 32, epochs=nepochs, verbose=1, validation_data=(XTest,YTest), callbacks=CallBacks)
 
 		Metrics = np.append(Metrics, history.history)
 

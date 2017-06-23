@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import pickle
 import getopt
 import warnings
@@ -41,19 +42,19 @@ for opt, arg in opts:
 		crossval = np.int(arg)
 
 #
-# Export useful information
-#
-
-with open('VGG16.json', 'w') as fp:
-	json.dump({'Classes': list(Classes), 'NSamples': n_samples, 'InputSize': 224}, fp)
-
-#
 # Load data
 #
 
 X, Y, Classes, (n_samples,n_classes) = LoadDataset('Dataset.pkl')
 
 print('#Classes: '+str(n_classes)+', #Samples: '+str(n_samples))
+
+#
+# Export useful information
+#
+
+with open('VGG16.json', 'w') as fp:
+	json.dump({'Classes': list(Classes), 'NSamples': n_samples, 'InputSize': 224}, fp)
 
 #
 # Load Model

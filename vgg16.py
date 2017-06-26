@@ -52,13 +52,6 @@ X, Y, Classes, (n_samples,n_classes) = LoadDataset('Dataset.pkl')
 print('#Classes: '+str(n_classes)+', #Samples: '+str(n_samples))
 
 #
-# Export useful information
-#
-
-with open('VGG16.json', 'w') as fp:
-	json.dump({'Classes': list(Classes), 'NSamples': n_samples, 'InputSize': X.shape[1]}, fp)
-
-#
 # Load Model
 #
 
@@ -133,7 +126,7 @@ if __name__ == '__main__':
 	# Callbacks
 	#
 
-	CallBacks = [ModelCheckpoint('VGG16.h5', monitor='val_loss', save_best_only=True),
+	CallBacks = [ModelCheckpoint('vgg16.h5', monitor='val_loss', save_best_only=True),
 				 #EarlyStopping(monitor='val_loss',mode='auto'),
 				 TensorBoard(log_dir=boardfolder, write_graph=False)]
 
@@ -152,7 +145,7 @@ if __name__ == '__main__':
 	# Training adapted VGG16 model
 	#
 
-	sgd = optimizers.SGD(lr=0.1, decay=1e-6, momentum=0.5, nesterov=True)
+	sgd = optimizers.SGD(lr=0.05, decay=1e-6, momentum=0.5, nesterov=True)
 
 	print('Training in '+str(crossval)+' folds for '+str(nepochs)+' epochs')
 
@@ -166,11 +159,9 @@ if __name__ == '__main__':
 
 		model.compile(optimizer=sgd, loss='categorical_crossentropy', metrics=['accuracy'])
 
-		# history = model.fit(XTrain, YTrain, epochs=nepochs, batch_size=32, shuffle=True, verbose=1, validation_data=(XTest,YTest), callbacks=CallBacks)
-
 		DataGen.fit(XTrain)
 
-		model.fit_generator(DataGen.flow(XTrain, YTrain, batch_size=32), steps_per_epoch=len(XTrain) / 32, epochs=nepochs, verbose=1, validation_data=(XTest,YTest), callbacks=CallBacks)
+		history = model.fit_generator(DataGen.flow(XTrain, YTrain, batch_size=32), steps_per_epoch=len(XTrain) / 32, epochs=nepochs, verbose=1, validation_data=(XTest,YTest), callbacks=CallBacks)
 
 		Metrics = np.append(Metrics, history.history)
 
@@ -183,3 +174,17 @@ if __name__ == '__main__':
 	with open(boardfolder+'.pkl', 'wb') as fp:
 		pickle.dump(Metrics, fp)
 
+	#
+	# Save model to disk
+	#
+
+	model_json = model.to_json()
+	with open("vgg16.json", "w") as json_file:
+		json_file.write(model_json)
+
+	#
+	# Export useful information
+	#
+
+	with open('vgg16.info', 'w') as fp:
+		json.dump({'Classes': list(Classes), 'NSamples': n_samples, 'InputSize': X.shape[1], 'LogDirectory': logname}, fp)

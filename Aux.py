@@ -8,7 +8,8 @@ def LoadDataset(full_path):
 
 	Data = Dataset['Data'].astype(np.float64)
 	Labels = Dataset['Label']
-	Classes = np.unique(Labels)
+
+	Classes = Labels[np.sort(np.unique(Labels, return_index=True)[1])]
 
 	n_classes = len(Classes)
 	n_samples = Data.shape[0]

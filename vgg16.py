@@ -113,22 +113,26 @@ if __name__ == '__main__':
 	if not os.path.exists('./log'):
 		os.makedirs('./log')
 
-	logname = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+	modelname = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
 
-	boardfolder = os.path.join('./log',logname)
+	boardfolder = os.path.join('./log',modelname)
 
 	os.mkdir(boardfolder)
 
 	print('Tensorboard folder: '+boardfolder)
 
-
 	#
-	# Callbacks
+	# Model folder
 	#
 
-	CallBacks = [ModelCheckpoint('vgg16.h5', monitor='val_loss', save_best_only=True),
-				 #EarlyStopping(monitor='val_loss',mode='auto'),
-				 TensorBoard(log_dir=boardfolder, write_graph=False)]
+	if not os.path.exists('./models'):
+		os.makedirs('./models')
+
+	modelfolder = os.path.join('./models',modelname)
+
+	os.mkdir(modelfolder)
+
+	print('Model folder: '+modelfolder)
 
 	#
 	# Data augmentation
@@ -152,6 +156,20 @@ if __name__ == '__main__':
 	Metrics = []
 
 	for fold in range(crossval):
+
+		#
+		# Callbacks
+		#
+
+		checkpoint_name = 'vgg16-'+str(fold)+'.h5'
+
+		CallBacks = [ModelCheckpoint(os.path.join(modelfolder,checkpoint_name), monitor='val_loss', save_best_only=True),
+					 #EarlyStopping(monitor='val_loss',mode='auto'),
+					 TensorBoard(log_dir=boardfolder, write_graph=False)]
+
+		#
+		# Training
+		#
 
 		model = VGG16(include_top=False, weights='imagenet', n_classes = n_classes)
 
@@ -179,12 +197,12 @@ if __name__ == '__main__':
 	#
 
 	model_json = model.to_json()
-	with open("vgg16.json", "w") as json_file:
+	with open(os.path.join(modelfolder,'vgg16.json'), 'w') as json_file:
 		json_file.write(model_json)
 
 	#
 	# Export useful information
 	#
 
-	with open('vgg16.info', 'w') as fp:
-		json.dump({'Classes': list(Classes), 'NSamples': n_samples, 'InputSize': X.shape[1], 'LogDirectory': logname}, fp)
+	with open(os.path.join(modelfolder,'vgg16.info'), 'w') as fp:
+		json.dump({'Classes': list(Classes), 'NSamples': n_samples, 'InputSize': X.shape[1], 'LogDirectory': modelname}, fp)

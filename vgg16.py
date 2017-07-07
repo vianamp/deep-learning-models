@@ -55,7 +55,7 @@ print('#Classes: '+str(n_classes)+', #Samples: '+str(n_samples))
 # Load Model
 #
 
-def VGG16(include_top=True, weights='imagenet', n_classes = 5):
+def VGG16(n_classes = 5):
 
 	img_input = Input(shape=(None,None,3))
 
@@ -171,7 +171,7 @@ if __name__ == '__main__':
 		# Training
 		#
 
-		model = VGG16(include_top=False, weights='imagenet', n_classes = n_classes)
+		model = VGG16(n_classes = n_classes)
 
 		XTrain, YTrain, XTest, YTest = SplitData(X, Y, n_samples, n_classes, split_fac=0.10)
 

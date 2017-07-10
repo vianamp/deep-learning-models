@@ -1,7 +1,7 @@
 import pickle
 import numpy as np
 
-def LoadDataset(full_path):
+def LoadDataset(full_path,model_name):
 
 	with open(full_path, 'rb') as fp:
 		Dataset = pickle.load(fp)
@@ -21,8 +21,18 @@ def LoadDataset(full_path):
 	Codes = np.zeros((len(Labels), n_classes))
 	Codes[np.arange(len(Labels)), Labels] = 1
 
-	for channel in range(3):
-		Data[:,:,:,channel] -= np.mean(Data[:,:,:,channel])
+	if model_name in ['vgg16','resnet50']:
+
+		for channel in range(3):
+			Data[:,:,:,channel] -= np.mean(Data[:,:,:,channel])
+
+		Data = Data[:, :, :, ::-1]
+
+	else:
+
+		Data /= 255.
+		Data -= 0.5
+		Data *= 2.
 
 	return Data, Codes, Classes, (n_samples,n_classes)
 

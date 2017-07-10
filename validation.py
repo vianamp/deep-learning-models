@@ -10,17 +10,23 @@ from keras.models import model_from_json
 from Aux import LoadDataset
 from sklearn.metrics import confusion_matrix, accuracy_score, recall_score
 
+opts, _ = getopt.getopt(sys.argv[1:],'m:',['model='])
+
+for opt, arg in opts:
+	if opt in ('-m','--model'):
+		mfolder = arg
+
 #
 # Load model
 #
 
-json_file = open('vgg16.json','r')
+json_file = open(os.path.join(mfolder,'vgg16.json'),'r')
 model = model_from_json(json_file.read())
 json_file.close()
 
-model.load_weights('vgg16.h5')
+model.load_weights(os.path.join(mfolder,'vgg16-0.h5'))
 
-with open('vgg16.info', 'r') as fp:
+with open(os.path.join(mfolder,'vgg16.info'), 'r') as fp:
 	Info = json.load(fp)
 
 #

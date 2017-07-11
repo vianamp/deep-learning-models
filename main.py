@@ -11,7 +11,7 @@ from keras import backend as K
 from keras.preprocessing.image import ImageDataGenerator
 from keras.callbacks import TensorBoard, ModelCheckpoint, History
 
-from aux import LoadDataset, SplitData
+from Aux import LoadDataset, SplitData
 from pret_models import Get_PreTrainedModel
 
 #

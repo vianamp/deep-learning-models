@@ -160,4 +160,4 @@ if __name__ == '__main__':
 			pickle.dump(Metrics, fp)
 
 
-	K.clear_session()
+		K.clear_session()

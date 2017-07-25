@@ -11,7 +11,7 @@ from keras import backend as K
 from keras.preprocessing.image import ImageDataGenerator
 from keras.callbacks import TensorBoard, ModelCheckpoint, History
 
-from Aux import LoadDataset, SplitData
+from datamanager import PreProcess, GetDatasetInfo
 from pret_models import Get_PreTrainedModel
 
 #
@@ -20,37 +20,33 @@ from pret_models import Get_PreTrainedModel
 
 K.set_image_dim_ordering('tf')
 
-WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.1/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5'
-
-#
-# Get command line arguments
-#
-
-opts, _ = getopt.getopt(sys.argv[1:],'c:e:m:',['crossval=','epochs=','model='])
-
-for opt, arg in opts:
-	if opt in ('-e','--epochs'):
-		nepochs = np.int(arg)
-	if opt in ('-c','--crossval'):
-		crossval = np.int(arg)
-	if opt in ('-m','--model'):
-		model_name = arg
-
-#
-# Load data
-#
-
-X, Y, Classes, (n_samples,n_classes) = LoadDataset('Dataset.pkl', model_name=model_name)
-
-print('Model: '+model_name)
-
-print('#Classes: '+str(n_classes)+', #Samples: '+str(n_samples))
-
 #
 # Main
 #
 
 if __name__ == '__main__':
+
+	#
+	# Path for training and validation data
+	#
+
+	data_folder = '.'
+	train_data_file = os.path.join(data_folder,'dataset-test-256.pkl')
+	valid_data_file = os.path.join(data_folder,'dataset-test-256.pkl')
+
+	#
+	# Get command line arguments
+	#
+
+	opts, _ = getopt.getopt(sys.argv[1:],'c:e:m:',['crossval=','epochs=','model='])
+
+	for opt, arg in opts:
+		if opt in ('-e','--epochs'):
+			nepochs = np.int(arg)
+		if opt in ('-c','--crossval'):
+			crossval = np.int(arg)
+		if opt in ('-m','--model'):
+			model_name = arg
 
 	#
 	# Log folder
@@ -67,6 +63,8 @@ if __name__ == '__main__':
 
 	print('Tensorboard folder: '+boardfolder)
 
+	CallBacks = [TensorBoard(log_dir=boardfolder, write_graph=False)]
+
 	#
 	# Model folder
 	#
@@ -79,6 +77,24 @@ if __name__ == '__main__':
 	os.mkdir(model_folder)
 
 	print('Model folder: '+model_folder)
+
+	#
+	# Export useful information
+	#
+
+	n_batches_train, batch_size_train, Classes, im_size = GetDatasetInfo(train_data_file)
+	n_batches_valid, batch_size_valid, Classes, im_size = GetDatasetInfo(valid_data_file)
+
+	with open(os.path.join(model_folder,'model.info'), 'w') as fp:
+		json.dump({'Classes': list(Classes),
+				   'NBatchesTrain': n_batches_train,
+				   'NBatchesValid': n_batches_valid,
+			       'BatchSizeTrain': batch_size_train,
+			       'BatchSizeValid': batch_size_valid,
+			       'InputSize': im_size,
+			       'LogDirectory': model_id,
+			       'Model': model_name,
+			       'Epochs': nepochs}, fp)
 
 	#
 	# Data augmentation
@@ -97,30 +113,17 @@ if __name__ == '__main__':
 
 	print('Training in '+str(crossval)+' folds for '+str(nepochs)+' epochs')
 
-	Metrics = []
-
 	for fold in range(crossval):
 
-		#
-		# Callbacks
-		#
+		best_acc = 0.
 
 		checkpoint_name = 'model-'+str(fold)
-
-		CallBacks = [ModelCheckpoint(os.path.join(model_folder,checkpoint_name+'.h5'), monitor='val_loss', save_best_only=True),
-					 TensorBoard(log_dir=boardfolder, write_graph=False)]
 
 		#
 		# Create the model
 		#
 
-		model = Get_PreTrainedModel(model_name=model_name, im_size=224, n_classes=3)
-
-		#
-		# Split the data
-		#
-
-		XTrain, YTrain, XTest, YTest = SplitData(X, Y, n_samples, n_classes, split_fac=0.10)
+		model = Get_PreTrainedModel(model_name=model_name, im_size=im_size, n_classes=len(Classes))
 
 		#
 		# Save model to disk
@@ -131,33 +134,87 @@ if __name__ == '__main__':
 			json_file.write(model_json)
 
 		#
-		# Export useful information
+		# Loop the entire dataset nepochs times 
 		#
 
-		with open(os.path.join(model_folder,'model.info'), 'w') as fp:
-			json.dump({'Classes': list(Classes),
-				       'NSamples': n_samples,
-				       'InputSize': X.shape[1],
-				       'LogDirectory': model_id,
-				       'Model': model_name,
-				       'Epochs': nepochs}, fp)
+		for epoch in range(nepochs):
 
-		# -----------------------------------------------------------------------------------------
-		# Training
-		# -----------------------------------------------------------------------------------------
+			print('Epoch: '+str(epoch)+', Fold: '+str(fold))
 
-		DataGen.fit(XTrain)
+			#
+			# Training for each batch in the pickle file
+			#
 
-		history = model.fit_generator(DataGen.flow(XTrain, YTrain, batch_size=32), steps_per_epoch=len(XTrain) / 32, epochs=nepochs, verbose=1, validation_data=(XTest,YTest), callbacks=CallBacks)
+			with open(train_data_file, 'rb') as pickle_file_train:
 
-		Metrics = np.append(Metrics, history.history)
+				while 1:
+				
+					new_batch = False
+
+					try:
+				
+						Batch = pickle.load(pickle_file_train)
+
+						new_batch = True
+
+					except EOFError:
+
+						break
+
+					if new_batch:
+
+						XTrain, YTrain, Classes, (n_samples,n_classes) = PreProcess(Batch=Batch, model_name=model_name)
+
+						DataGen.fit(XTrain)
+
+						model.fit_generator(DataGen.flow(XTrain, YTrain, batch_size=32), steps_per_epoch=len(XTrain) / 32, epochs=1, verbose=0, callbacks=CallBacks)
+
+			#
+			# At the end of each epoch evaluate the model
+			# on the validation set and decide whether to
+			# save it
+			#
+
+			cur_acc = 0.
+
+			with open(valid_data_file, 'rb') as pickle_file_valid:
+
+				while 1:
+				
+					new_batch = False
+
+					try:
+				
+						Batch = pickle.load(pickle_file_valid)
+
+						new_batch = True
+
+					except EOFError:
+
+						break
+
+					if new_batch:
+
+						XValid, YValid, _, _ = PreProcess(Batch=Batch, model_name=model_name)
+
+						metrics = model.evaluate(XValid, YValid, batch_size=32, verbose=0)
+
+						cur_acc += metrics[1]
+			
+			cur_acc /= n_batches_valid
+
+			if cur_acc > best_acc:
+
+				print('Saving new model...')
+				print('Old acc:'+str(best_acc))
+				print('New acc:'+str(cur_acc))
+
+				best_acc = cur_acc
+
+				model.save_weights(os.path.join(model_folder,checkpoint_name+'.h5'))
 
 		#
-		# Save history
+		# Clear session and start over a new fold
 		#
-
-		with open(os.path.join(model_folder,'model.pkl'), 'wb') as fp:
-			pickle.dump(Metrics, fp)
-
 
 		K.clear_session()
